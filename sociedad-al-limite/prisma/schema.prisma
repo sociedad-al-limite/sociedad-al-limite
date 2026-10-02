@@ -1,0 +1,149 @@
+// Base de datos de Sociedad al Límite.
+// Pensada para el panel administrativo: noticias, categorías, autores,
+// entrevistas, videos, redes, notas internas para Saul y estadísticas.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ContentType {
+  NOTICIA
+  OPINION
+  DENUNCIA
+  DECLARACION
+  ENTREVISTA
+}
+
+enum Verification {
+  CONFIRMADO
+  NO_CONFIRMADO   // denuncias y versiones aún no verificadas
+}
+
+enum Status {
+  BORRADOR
+  PUBLICADO
+  ARCHIVADO
+}
+
+model Category {
+  id          String    @id @default(cuid())
+  slug        String    @unique   // politica, sociedad, local, educacion…
+  name        String
+  description String?
+  order       Int       @default(0)
+  articles    Article[]
+}
+
+model Author {
+  id       String    @id @default(cuid())
+  name     String
+  role     String?
+  avatar   String?
+  articles Article[]
+}
+
+model Article {
+  id           String       @id @default(cuid())
+  slug         String       @unique
+  title        String
+  subtitle     String?
+  summary      String
+  body         String       // Markdown
+  coverUrl     String?
+  coverAlt     String?
+  photos       String[]     // galerías dentro de la noticia
+  type         ContentType  @default(NOTICIA)
+  verification Verification @default(CONFIRMADO)
+  status       Status       @default(BORRADOR)
+  featured     Boolean      @default(false)  // "Noticia del momento"
+  developing   Boolean      @default(false)  // etiqueta "EN DESARROLLO"
+  breaking     Boolean      @default(false)  // dispara notificación push al publicar
+  priority     Int          @default(1)      // 1 normal · 2 importante · 3 principal
+  places       String[]     // Consuelo, San Pedro de Macorís…
+  tags         String[]
+  youtubeId    String?      // video relacionado
+  views        Int          @default(0)
+  publishedAt  DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  category     Category     @relation(fields: [categoryId], references: [id])
+  categoryId   String
+  author       Author?      @relation(fields: [authorId], references: [id])
+  authorId     String?
+
+  @@index([status, publishedAt])
+  @@index([categoryId, publishedAt])
+}
+
+model Interview {
+  id          String    @id @default(cuid())
+  guestName   String
+  guestRole   String?
+  topic       String
+  imageUrl    String?
+  youtubeId   String?
+  articleSlug String?
+  publishedAt DateTime  @default(now())
+}
+
+model PodcastEpisode {
+  id          String   @id @default(cuid())
+  number      Int
+  title       String
+  description String?
+  audioUrl    String?
+  durationMin Int?
+  publishedAt DateTime @default(now())
+}
+
+model GalleryPhoto {
+  id        String   @id @default(cuid())
+  url       String
+  caption   String
+  createdAt DateTime @default(now())
+}
+
+// Enlaces oficiales administrables desde el panel
+model SocialLink {
+  network String @id // youtube, facebook, instagram, tiktok, whatsapp
+  url     String
+}
+
+// Información de contexto que el equipo quiere que Saul conozca
+// (horarios del programa, aclaraciones, correcciones). Saul solo usa
+// entradas activas y siempre las cita como fuente.
+model SaulNote {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  active    Boolean  @default(true)
+  updatedAt DateTime @updatedAt
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+}
+
+model ContactMessage {
+  id        String   @id @default(cuid())
+  name      String
+  contact   String
+  kind      String
+  message   String
+  createdAt DateTime @default(now())
+}
+
+model DailyStat {
+  day       DateTime @id @db.Date
+  pageviews Int      @default(0)
+  saulChats Int      @default(0)
+}
